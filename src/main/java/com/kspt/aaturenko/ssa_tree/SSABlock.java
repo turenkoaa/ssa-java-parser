@@ -9,7 +9,7 @@ import java.util.List;
 public class SSABlock {
     private SSASyntaxBlockType type;
     private SSAExpression expression;
-    private List<SSABlock> children;
+    private LinkedList<SSABlock> children;
 
     public SSABlock(SSASyntaxBlockType type, SSAExpression expression) {
         children = new LinkedList<>();
@@ -18,7 +18,7 @@ public class SSABlock {
     }
 
     public enum SSASyntaxBlockType {
-        ASSIGNMENT
+        ASSIGNMENT, CONDITION
     }
 
     public SSASyntaxBlockType getType() {
@@ -33,7 +33,7 @@ public class SSABlock {
         children.add(block);
     }
 
-    public List<SSABlock> getChildren() {
+    public LinkedList<SSABlock> getChildren() {
         return children;
     }
 

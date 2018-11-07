@@ -2,11 +2,17 @@ package com.kspt.aaturenko;
 
 public class Test {
     public void doMethod(){
-        int a = 51;
-        a = 6;
-        double i = a;
-        int b = a + 3 - 2 * 4;
-        b = b + a;
+        int a = 1;
+        int b = 2;
+        int c = 0;
+        if (a > b) {
+            c = 3;
+            b = 3;
+        } else {
+            c = 4;
+        }
+        b=c;
+        a=6;
 
     }
 }

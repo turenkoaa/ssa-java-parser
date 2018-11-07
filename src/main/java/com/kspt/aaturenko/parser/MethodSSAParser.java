@@ -7,13 +7,13 @@ import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.IfStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.kspt.aaturenko.diagram.VersionResolver;
 import com.kspt.aaturenko.ssa_tree.SSABlock;
 import com.kspt.aaturenko.ssa_tree.SSAExpression;
 
 import java.util.*;
 
 import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.ASSIGNMENT;
+import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.CONDITION;
 
 public class MethodSSAParser {
     private VersionResolver versionResolver = new VersionResolver();
@@ -21,27 +21,41 @@ public class MethodSSAParser {
     public SSABlock processMethod(Node node) {
         BlockStmt block = node.findFirst(BlockStmt.class)
                 .orElseThrow(() -> new IllegalArgumentException("Abstract functions are not supported"));
-
-        List<Node> childNodes = block.getChildNodes();
-        SSABlock start = null;
-        SSABlock parent = null;
-
-        for (Node child : childNodes) {
-            SSABlock ssaBlock = process(child);
-            SSABlock processedSSABlock = versionResolver.resolve(ssaBlock);
-
-            if (parent != null) parent.addChild(processedSSABlock);
-            else start = processedSSABlock;
-            parent = processedSSABlock;
-        }
-
-        return start;
+        return processBlock(block);
     }
 
     private SSABlock process(Node node) {
         if (node instanceof ExpressionStmt) return processExpression((ExpressionStmt) node);
+        if (node instanceof BlockStmt) return processBlock((BlockStmt) node);
         if (node instanceof Statement) return processStatement((Statement) node);
         else throw new IllegalArgumentException("Type of Statement was nor recognized: " + node.getMetaModel());
+    }
+
+    private SSABlock processBlock(BlockStmt block) {
+        SSABlock entry = null;
+        SSABlock parent = null;
+
+        List<Node> childNodes = block.getChildNodes();
+        for (Node node : childNodes) {
+            SSABlock ssaBlock = process(node);
+            SSABlock processedSSABlock = versionResolver.resolve(ssaBlock);
+
+            if (parent != null) {
+                if (parent.getType() != CONDITION) parent.addChild(processedSSABlock);
+                else {
+                    for (SSABlock thenOrElse : parent.getChildren()) {
+                        if (thenOrElse.getChildren().isEmpty()) thenOrElse.addChild(processedSSABlock);
+                        else thenOrElse.getChildren().getLast().addChild(processedSSABlock);
+                        versionResolver.thenOrElse
+                    }
+                }
+            }
+            else entry = processedSSABlock;
+
+            parent = processedSSABlock;
+        }
+
+        return entry;
     }
 
     private SSABlock processExpression(ExpressionStmt node) {
@@ -60,7 +74,20 @@ public class MethodSSAParser {
     }
 
     private SSABlock processIfStatement(IfStmt ifStmt) {
-        return null;
+        BinaryExpr condition = ifStmt.getCondition().asBinaryExpr();
+        SSAExpression conditionExpression = new SSAExpression();
+        conditionExpression.setLeft(parseExpression(condition.getLeft()));
+        conditionExpression.setRight(parseExpression(condition.getRight()));
+        conditionExpression.setSign(condition.getOperator().asString());
+        SSABlock conditionBlock = new SSABlock(CONDITION, conditionExpression);
+
+        SSABlock thenBlock = process(ifStmt.getThenStmt());
+        conditionBlock.addChild(thenBlock);
+
+        Optional<SSABlock> elseBlock = ifStmt.getElseStmt().map(this::process);
+        elseBlock.ifPresent(conditionBlock::addChild);
+
+        return conditionBlock;
     }
 
     private SSABlock processVariableDeclarationExpr(VariableDeclarationExpr variableDeclarationExpr) {

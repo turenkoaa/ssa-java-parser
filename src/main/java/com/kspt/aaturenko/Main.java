@@ -28,7 +28,7 @@ public class Main {
             method -> {
                 SSABlock block = parser.processMethod(method);
                 System.out.println(block);
-                DiagramUtil.generateGraph(block, method.getNameAsString());
+//                DiagramUtil.generateGraph(block, method.getNameAsString());
 //                parser.print(method, 0);
             }
         );
