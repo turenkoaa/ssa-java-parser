@@ -21,8 +21,11 @@ public class MethodSSAParser {
     public SSABlock processMethod(Node node) {
         BlockStmt block = node.findFirst(BlockStmt.class)
                 .orElseThrow(() -> new IllegalArgumentException("Abstract functions are not supported"));
-        return processBlock(block);
+        SSABlock ssaBlock = processBlock(block);
+        versionResolver.resolveVersions(ssaBlock);
+        return ssaBlock;
     }
+
 
     private SSABlock process(Node node) {
         if (node instanceof ExpressionStmt) return processExpression((ExpressionStmt) node);
@@ -37,22 +40,23 @@ public class MethodSSAParser {
 
         List<Node> childNodes = block.getChildNodes();
         for (Node node : childNodes) {
-            SSABlock ssaBlock = process(node);
-            SSABlock processedSSABlock = versionResolver.resolve(ssaBlock);
+            SSABlock processedSSABlock = process(node);
+//            SSABlock processedSSABlock = versionResolver.resolve(ssaBlock);
 
             if (parent != null) {
-                if (parent.getType() != CONDITION) parent.addChild(processedSSABlock);
-                else {
-                    for (SSABlock thenOrElse : parent.getChildren()) {
-                        if (thenOrElse.getChildren().isEmpty()) thenOrElse.addChild(processedSSABlock);
-                        else thenOrElse.getChildren().getLast().addChild(processedSSABlock);
-                        versionResolver.thenOrElse
-                    }
-                }
+//                if (parent.getType() != CONDITION)
+                parent.addChild(processedSSABlock);
+//                else {
+//                    for (SSABlock thenOrElse : parent.getChildren()) {
+//                        if (thenOrElse.getChildren().isEmpty()) thenOrElse.addChild(processedSSABlock);
+//                        else thenOrElse.getChildren().getLast().addChild(processedSSABlock);
+//                    }
+//                    versionResolver.countAssignments(parent);
+//                }
             }
             else entry = processedSSABlock;
 
-            parent = processedSSABlock;
+            if (processedSSABlock.getType() != CONDITION) parent = processedSSABlock;
         }
 
         return entry;

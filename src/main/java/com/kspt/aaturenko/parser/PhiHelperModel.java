@@ -13,7 +13,6 @@ public class PhiHelperModel {
     Map<String, Integer> phiFunctions = new HashMap<>();
     Map<String, Integer> varVersionInBranch = new HashMap<>();
     SSABlock branch;
-    SSABlock endOfBranch;
 
     public void putToPhiFunctions(String var, Integer version) {
         phiFunctions.put(var, version);
@@ -31,7 +30,11 @@ public class PhiHelperModel {
         return branch;
     }
 
-    public SSABlock getEndOfBranch() {
-        return endOfBranch;
+    public Map<String, Integer> getPhiFunctions() {
+        return phiFunctions;
+    }
+
+    public void setBranch(SSABlock branch) {
+        this.branch = branch;
     }
 }
