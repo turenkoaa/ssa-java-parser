@@ -55,7 +55,8 @@ public class SSAExpression {
     @Override
     public String toString() {
         if (numericValue != null) return numericValue;
-        if (varName != null) return varName;
+        if (varName != null)
+            return varName;
 
         StringBuilder sb = new StringBuilder();
         return sb.append(left.toString())

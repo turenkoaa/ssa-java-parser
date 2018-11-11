@@ -1,10 +1,10 @@
 package com.kspt.aaturenko.parser;
 
 import com.kspt.aaturenko.ssa_tree.SSABlock;
-import com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType;
 import com.kspt.aaturenko.ssa_tree.SSAExpression;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.*;
 
@@ -13,40 +13,67 @@ import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.*;
  */
 public class VersionResolver {
     private Map<String, Integer> varNumbers = new HashMap<>();
-    List<PhiHelperModel> phiModels = new ArrayList<>();
+    private Map<Long, PhiModel> phiModels = new HashMap<>();
 
     public void resolveVersions(SSABlock ssaBlock){
         resolve(ssaBlock);
-        phiModels.forEach(phi -> System.out.println(phi.getPhiFunctions()));
+        printPhiFunctions();
     }
 
-    public void resolve(SSABlock ssaBlock) {
-        SSAExpression ssaBlockExpression = ssaBlock.getExpression();
-        String declaredVar = ssaBlockExpression.getLeft().getVarName();
-        Integer version = varNumbers.get(declaredVar);
+    private void printPhiFunctions() {
+        for (PhiModel phiModel : phiModels.values()) {
+            for (String var : phiModel.getPhiFunctions()) {
+                List<Integer> versions = phiModel.getVarVersionInBranch().get(var);
+                int max = versions.stream().mapToInt(v -> v).max().getAsInt() + 1;
+                String arg = versions.stream()
+                        .map(version -> var + "_" + version)
+                        .collect(Collectors.joining(","));
 
-        resolveVersionedVars(ssaBlockExpression);
-
-        if (ssaBlock.getType() == ASSIGNMENT) {
-            varNumbers.put(declaredVar, version != null ? version + 1 : 1);
-            ssaBlockExpression.getLeft().setVarName(declaredVar + "_" + varNumbers.get(declaredVar));
-            ssaBlock.getChildren().forEach(this::resolve);
-        }  else if (ssaBlock.getType() == CONDITION) {
-            Set<String> varsFromBranches = new HashSet<>();
-            ssaBlock.getChildren().forEach(branch -> varsFromBranches.addAll(getVarsFromBranch(branch)));
-            ssaBlock.getChildren().forEach(this::resolve);
-
-            // достань конечные версии переменных для каждой ветки отдельно
-            // храни их так - мапа: вар -> список версий
-            // и дльше выдавай такую же структуру на вывод
-            PhiHelperModel phiHelperModel = new PhiHelperModel();
-            for (String var : varsFromBranches) {
-                phiHelperModel.getVarVersionInBranch().put(var, varNumbers.get(var));
+                System.out.println(var + "_" + max + " = phi(" + arg + ")");
             }
-            phiHelperModel.setBranch(ssaBlock);
-            phiModels.add(phiHelperModel);
+        }
+    }
 
-         }
+    public String getPhiExpr(long id) {
+        PhiModel phiModel = phiModels.get(id);
+        String phi = "";
+        for (String var : phiModel.getPhiFunctions()) {
+            List<Integer> versions = phiModel.getVarVersionInBranch().get(var);
+            int max = versions.stream().mapToInt(v -> v).max().getAsInt() + 1;
+            String arg = versions.stream()
+                    .map(version -> var + "_" + version)
+                    .collect(Collectors.joining(","));
+
+            phi = phi + var + "_" + max + " = phi(" + arg + ") ";
+        }
+        return phi;
+    }
+
+    private void resolve(SSABlock ssaBlock) {
+        if (ssaBlock.getType() != PHI) {
+            SSAExpression ssaBlockExpression = ssaBlock.getExpression();
+            String declaredVar = ssaBlockExpression.getLeft().getVarName();
+            Integer version = varNumbers.get(declaredVar);
+
+            resolveVersionedVars(ssaBlockExpression);
+
+            if (ssaBlock.getType() == ASSIGNMENT) {
+                varNumbers.put(declaredVar, version != null ? version + 1 : 1);
+                ssaBlockExpression.getLeft().setVarName(declaredVar + "_" + varNumbers.get(declaredVar));
+                ssaBlock.getChildren().forEach(this::resolve);
+            } else if (ssaBlock.getType() == CONDITION) {
+                int index = 0;
+                PhiModel phiModel = new PhiModel();
+                for (SSABlock branch : ssaBlock.getChildren()) {
+                    for (String var : getVarsFromBranch(branch)) {
+                        phiModel.putToVarVersionInBranch(var, varNumbers.get(var) + 1, index);
+                    }
+                    index++;
+                    resolve(branch);
+                }
+                phiModels.put(ssaBlock.getId(), phiModel);
+            }
+        }
     }
 
     private Set<String> getVarsFromBranch(SSABlock block) {
@@ -74,13 +101,12 @@ public class VersionResolver {
         String numericValue = ssaBlockExpression.getNumericValue();
         if (varName != null) {
 
-            for (PhiHelperModel phiModel : phiModels) {
-                Integer versionsInBranch = phiModel.getVarVersionInBranch().get(varName);
-                if (versionsInBranch != null) {
+            for (PhiModel phiModel : phiModels.values()) {
+                List<Integer> versions = phiModel.getVarVersionInBranch().get(varName);
+                if (versions != null && versions.size() > 1) {
                     int versionOfPhi = Optional.ofNullable(varNumbers.get(varName)).orElse(1);
-                    phiModel.putToPhiFunctions(varName, versionOfPhi);
-                    varNumbers.put(varName, versionOfPhi + 2);
-                    phiModel.getVarVersionInBranch().remove(varName);
+                    phiModel.addToPhiFunctions(varName);
+                    varNumbers.put(varName, versionOfPhi + 1);
                 }
             }
 
@@ -90,5 +116,4 @@ public class VersionResolver {
             resolveVersionedVars(ssaBlockExpression.getRight());
         }
     }
-
 }

@@ -16,9 +16,9 @@ import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.ASSIGNMENT
 import static com.kspt.aaturenko.ssa_tree.SSABlock.SSASyntaxBlockType.CONDITION;
 
 public class MethodSSAParser {
-    private VersionResolver versionResolver = new VersionResolver();
+    private VersionResolver versionResolver;
 
-    public SSABlock processMethod(Node node) {
+    public SSABlock processMethod(Node node, VersionResolver versionResolver) {
         BlockStmt block = node.findFirst(BlockStmt.class)
                 .orElseThrow(() -> new IllegalArgumentException("Abstract functions are not supported"));
         SSABlock ssaBlock = processBlock(block);
@@ -41,19 +41,8 @@ public class MethodSSAParser {
         List<Node> childNodes = block.getChildNodes();
         for (Node node : childNodes) {
             SSABlock processedSSABlock = process(node);
-//            SSABlock processedSSABlock = versionResolver.resolve(ssaBlock);
 
-            if (parent != null) {
-//                if (parent.getType() != CONDITION)
-                parent.addChild(processedSSABlock);
-//                else {
-//                    for (SSABlock thenOrElse : parent.getChildren()) {
-//                        if (thenOrElse.getChildren().isEmpty()) thenOrElse.addChild(processedSSABlock);
-//                        else thenOrElse.getChildren().getLast().addChild(processedSSABlock);
-//                    }
-//                    versionResolver.countAssignments(parent);
-//                }
-            }
+            if (parent != null) parent.addChild(processedSSABlock);
             else entry = processedSSABlock;
 
             if (processedSSABlock.getType() != CONDITION) parent = processedSSABlock;

@@ -7,6 +7,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.kspt.aaturenko.diagram.DiagramUtil;
 import com.kspt.aaturenko.parser.MethodSSAParser;
+import com.kspt.aaturenko.parser.VersionResolver;
 import com.kspt.aaturenko.ssa_tree.SSABlock;
 
 import java.io.FileInputStream;
@@ -26,9 +27,10 @@ public class Main {
         MethodSSAParser parser = new MethodSSAParser();
         classDeclaration.findAll(MethodDeclaration.class).forEach(
             method -> {
-                SSABlock block = parser.processMethod(method);
+                VersionResolver versionResolver = new VersionResolver();
+                SSABlock block = parser.processMethod(method, versionResolver);
                 System.out.println(block);
-                DiagramUtil.generateGraph(block, method.getNameAsString());
+                DiagramUtil.generateGraph(block, versionResolver, method.getNameAsString());
 //                parser.print(method, 0);
             }
         );
